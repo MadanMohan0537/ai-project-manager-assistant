@@ -1,0 +1,16 @@
+# ── Core AI / Agent stack ─────────────────────────────────────────────────────
+langgraph>=0.2.0
+langchain>=0.3.0
+langchain-openai>=0.2.0
+
+# ── Data handling ─────────────────────────────────────────────────────────────
+pandas>=2.0.0
+
+# ── Environment variables ─────────────────────────────────────────────────────
+python-dotenv>=1.0.0
+
+# ── Optional: visualisation ───────────────────────────────────────────────────
+# Uncomment if you want Gantt charts or dependency graphs
+# plotly>=5.0.0
+# networkx>=3.0
+# matplotlib>=3.7.0
