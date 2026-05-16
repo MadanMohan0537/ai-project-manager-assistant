@@ -29,7 +29,7 @@ This agent fills that blank page for you. Give it one paragraph — it gives you
 
 | Without this agent | With this agent |
 |---|---|
-| Hours of planning meetings | ~30 seconds |
+| Hours of planning meetings | ~2 Minutes |
 | Manual task breakdown | AI-generated 8–12 tasks with effort estimates |
 | Forgotten dependencies | Automatic dependency graph |
 | Gut-feel risk assessment | Scored risk report (0–10) with mitigations |
@@ -406,10 +406,6 @@ It keeps the graph contract consistent — every node receives state and returns
 
 - 📖 [LangGraph Documentation](https://langchain-ai.github.io/langgraph/)
 - 🔗 [LangChain OpenAI Integration](https://python.langchain.com/docs/integrations/chat/openai/)
-- ✍️ [Original inspiration — Day 17: Building AI Agents](https://srilaxmi.substack.com/p/day-17-of-building-ai-agents-building) by Sri Laxmi
+
 
 ---
-
-## 🙏 Credits
-
-Inspired by **Sri Laxmi's** [AI Agents blog series](https://srilaxmi.substack.com/). This repository expands on the original concept with a modular file structure, Azure OpenAI support, a CLI interface, detailed documentati
