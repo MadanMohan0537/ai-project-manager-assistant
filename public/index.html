@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>AI Project Manager</title>
+  <style>
+    :root{font-family:Inter,system-ui,sans-serif;color:#172033;background:#f4f7fb}*{box-sizing:border-box}body{margin:0}.wrap{max-width:980px;margin:auto;padding:32px 18px 60px}header{margin-bottom:24px}h1{margin:0;font-size:clamp(2rem,5vw,3.5rem)}header p{color:#5e6b82}.card{background:#fff;border:1px solid #dce3ed;border-radius:16px;padding:22px;box-shadow:0 8px 30px #19233a0d;margin-bottom:18px}label{font-weight:700;display:block;margin:12px 0 7px}textarea,input{width:100%;border:1px solid #bac5d4;border-radius:9px;padding:11px;font:inherit}textarea{min-height:150px;resize:vertical}.member{display:grid;grid-template-columns:1fr 2fr auto;gap:8px;margin:8px 0}button{border:0;border-radius:9px;padding:11px 16px;font-weight:700;cursor:pointer}.primary{background:#635bff;color:#fff;margin-top:16px}.secondary{background:#e9edff;color:#3832b6}.remove{background:#fee9e9;color:#a72222}button:disabled{opacity:.55;cursor:wait}.status{margin:12px 0;color:#5e6b82}.error{color:#b42318}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px}.metric{background:#f6f7ff;border-radius:10px;padding:12px}.metric b{display:block;font-size:1.45rem}.task{border-left:4px solid #635bff;padding:10px 14px;margin:10px 0;background:#fafbff;border-radius:6px}pre{white-space:pre-wrap;overflow-wrap:anywhere}.hidden{display:none}@media(max-width:650px){.member{grid-template-columns:1fr}.remove{justify-self:start}}
+  </style>
+</head>
+<body><main class="wrap">
+  <header><h1>AI Project Manager</h1><p>Turn an idea and your team's skills into an actionable project plan.</p></header>
+  <section class="card">
+    <form id="form">
+      <label for="project">Project description</label>
+      <textarea id="project" maxlength="10000" required placeholder="Describe the product, goals, constraints, and expected outcome..."></textarea>
+      <label>Team members</label><div id="team"></div>
+      <button type="button" class="secondary" id="add">+ Add member</button><br>
+      <button class="primary" id="submit">Generate project plan</button>
+    </form><div id="status" class="status" aria-live="polite"></div>
+  </section>
+  <section id="result" class="card hidden"></section>
+</main>
+<script>
+const team=document.querySelector('#team'),statusEl=document.querySelector('#status'),result=document.querySelector('#result');
+function add(name='',profile=''){const row=document.createElement('div');row.className='member';row.innerHTML='<input class="name" maxlength="80" placeholder="Name" required><input class="profile" maxlength="500" placeholder="Skills / role" required><button type="button" class="remove">Remove</button>';row.querySelector('.name').value=name;row.querySelector('.profile').value=profile;row.querySelector('.remove').onclick=()=>row.remove();team.append(row)}
+[['Alice','Full-stack developer'],['Bob','Backend APIs and databases'],['Carol','Cloud and DevOps']].forEach(x=>add(...x));document.querySelector('#add').onclick=()=>add();
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+document.querySelector('#form').onsubmit=async e=>{e.preventDefault();const btn=document.querySelector('#submit');btn.disabled=true;statusEl.className='status';statusEl.textContent='Generating your plan…';result.classList.add('hidden');const members=[...team.querySelectorAll('.member')].map(x=>({name:x.querySelector('.name').value,profile:x.querySelector('.profile').value}));try{const res=await fetch('/api/run',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({project:document.querySelector('#project').value,team:members})});const data=await res.json();if(!res.ok)throw new Error(data.error||'Request failed');render(data.plan)}catch(err){statusEl.className='status error';statusEl.textContent=err.message}finally{btn.disabled=false}};
+function render(p){const s=p.summary||{};result.innerHTML=`<h2>${esc(s.objective||'Project plan')}</h2><div class="grid"><div class="metric"><b>${esc(s.total_tasks??p.tasks?.length??0)}</b>Tasks</div><div class="metric"><b>${esc(s.total_days??0)}</b>Days</div><div class="metric"><b>${esc(s.team_size??0)}</b>Team members</div><div class="metric"><b>${esc(s.risk_score??0)}/10</b>Risk</div></div><h3>Tasks and assignments</h3>${(p.tasks||[]).map(t=>{const a=(p.assignments||[]).find(a=>a.task_id===t.id);return `<div class="task"><strong>${esc(t.id)} — ${esc(t.title)}</strong><div>${esc(t.description)}</div><small>${esc(t.duration_days)} day(s) · ${esc(a?.member||'Unassigned')} · Dependencies: ${esc((t.dependencies||[]).join(', ')||'None')}</small></div>`}).join('')}<h3>Risks</h3>${(p.risks||[]).map(r=>`<p><strong>${esc(r.severity)}:</strong> ${esc(r.risk)} — ${esc(r.mitigation)}</p>`).join('')||'<p>No major risks identified.</p>'}<h3>Insights</h3><ul>${(p.insights||[]).map(x=>`<li>${esc(x)}</li>`).join('')}</ul>`;result.classList.remove('hidden');statusEl.textContent='Plan generated successfully.'}
+</script></body></html>
