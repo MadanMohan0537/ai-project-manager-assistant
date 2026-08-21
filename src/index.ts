@@ -164,9 +164,15 @@ function asNumber(value: unknown, fallback = 0): number {
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
+function asInsight(value: unknown): string {
+  if (typeof value === "string" || typeof value === "number") return String(value).trim();
+  const record = asRecord(value);
+  return asString(record.insight || record.text || record.suggestion || record.message || record.description || record.reason);
+}
+
 function asStringArray(value: unknown): string[] {
   if (!Array.isArray(value)) return [];
-  return value.map((item) => asString(item)).filter(Boolean);
+  return value.map((item) => asInsight(item)).filter(Boolean);
 }
 
 function stripTrailingCommas(text: string): string {
