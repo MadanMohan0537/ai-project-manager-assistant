@@ -3,29 +3,132 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>AI Project Manager</title>
+  <title>AI Project Manager Assistant</title>
   <style>
-    :root{font-family:Inter,system-ui,sans-serif;color:#172033;background:#f4f7fb}*{box-sizing:border-box}body{margin:0}.wrap{max-width:980px;margin:auto;padding:32px 18px 60px}header{margin-bottom:24px}h1{margin:0;font-size:clamp(2rem,5vw,3.5rem)}header p{color:#5e6b82}.card{background:#fff;border:1px solid #dce3ed;border-radius:16px;padding:22px;box-shadow:0 8px 30px #19233a0d;margin-bottom:18px}label{font-weight:700;display:block;margin:12px 0 7px}textarea,input{width:100%;border:1px solid #bac5d4;border-radius:9px;padding:11px;font:inherit}textarea{min-height:150px;resize:vertical}.member{display:grid;grid-template-columns:1fr 2fr auto;gap:8px;margin:8px 0}button{border:0;border-radius:9px;padding:11px 16px;font-weight:700;cursor:pointer}.primary{background:#635bff;color:#fff;margin-top:16px}.secondary{background:#e9edff;color:#3832b6}.remove{background:#fee9e9;color:#a72222}button:disabled{opacity:.55;cursor:wait}.status{margin:12px 0;color:#5e6b82}.error{color:#b42318}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px}.metric{background:#f6f7ff;border-radius:10px;padding:12px}.metric b{display:block;font-size:1.45rem}.task{border-left:4px solid #635bff;padding:10px 14px;margin:10px 0;background:#fafbff;border-radius:6px}pre{white-space:pre-wrap;overflow-wrap:anywhere}.hidden{display:none}@media(max-width:650px){.member{grid-template-columns:1fr}.remove{justify-self:start}}
+    :root{font-family:Inter,system-ui,sans-serif;color:#172033;background:#eef3f9}*{box-sizing:border-box}body{margin:0}
+    .wrap{max-width:1120px;margin:auto;padding:32px 18px 72px}
+    header{margin-bottom:24px}h1{margin:0 0 8px;font-size:clamp(2rem,5vw,3.2rem)}header p{color:#5e6b82;max-width:720px;line-height:1.5}
+    .card{background:#fff;border:1px solid #dce3ed;border-radius:16px;padding:22px;box-shadow:0 8px 30px #19233a0d;margin-bottom:18px}
+    label{font-weight:700;display:block;margin:12px 0 7px}textarea,input{width:100%;border:1px solid #bac5d4;border-radius:9px;padding:11px;font:inherit}
+    textarea{min-height:140px;resize:vertical}.member{display:grid;grid-template-columns:1fr 2fr auto;gap:8px;margin:8px 0}
+    button{border:0;border-radius:9px;padding:11px 16px;font-weight:700;cursor:pointer}.primary{background:#635bff;color:#fff;margin-top:16px}
+    .secondary{background:#e9edff;color:#3832b6}.remove{background:#fee9e9;color:#a72222}button:disabled{opacity:.55;cursor:wait}
+    .status{margin:12px 0;color:#5e6b82}.error{color:#b42318}.ok{color:#0f7b45}.warn{color:#9a6700}
+    .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px}
+    .metric{background:#f6f7ff;border-radius:10px;padding:12px}.metric b{display:block;font-size:1.45rem}
+    .task{border-left:4px solid #635bff;padding:12px 14px;margin:10px 0;background:#fafbff;border-radius:8px}
+    .hidden{display:none}table{width:100%;border-collapse:collapse;font-size:.95rem}
+    th,td{text-align:left;padding:8px 10px;border-bottom:1px solid #e6ebf3}th{color:#5e6b82;font-size:.82rem;text-transform:uppercase;letter-spacing:.03em}
+    .sev{display:inline-block;padding:2px 8px;border-radius:999px;font-size:.78rem;font-weight:700;text-transform:uppercase}
+    .high{background:#fee9e9;color:#a72222}.medium{background:#fff4d6;color:#9a6700}.low{background:#e8f7ee;color:#0f7b45}
+    .bar{height:10px;background:#e9edff;border-radius:99px;overflow:hidden;min-width:120px}.bar>span{display:block;height:100%;background:#635bff}
+    h2,h3{margin:8px 0 12px}ul{padding-left:18px}@media(max-width:650px){.member{grid-template-columns:1fr}.remove{justify-self:start}table{display:block;overflow-x:auto}}
   </style>
 </head>
-<body><main class="wrap">
-  <header><h1>AI Project Manager</h1><p>Turn an idea and your team's skills into an actionable project plan.</p></header>
+<body>
+<main class="wrap">
+  <header>
+    <h1>AI Project Manager</h1>
+    <p>Turn an idea and your team's skills into an actionable plan: work breakdown, schedule, assignments, RAID risks, and delivery insights.</p>
+  </header>
   <section class="card">
     <form id="form">
       <label for="project">Project description</label>
-      <textarea id="project" maxlength="10000" required placeholder="Describe the product, goals, constraints, and expected outcome..."></textarea>
-      <label>Team members</label><div id="team"></div>
+      <textarea id="project" maxlength="10000" required placeholder="Describe the product, goals, constraints, and expected outcome...">Build a mobile application for food delivery. The app should support customer ordering, restaurant management, real-time delivery tracking, payment processing, and push notifications.</textarea>
+      <label>Team members</label>
+      <div id="team"></div>
       <button type="button" class="secondary" id="add">+ Add member</button><br>
       <button class="primary" id="submit">Generate project plan</button>
-    </form><div id="status" class="status" aria-live="polite"></div>
+    </form>
+    <div id="status" class="status" aria-live="polite"></div>
   </section>
   <section id="result" class="card hidden"></section>
 </main>
 <script>
 const team=document.querySelector('#team'),statusEl=document.querySelector('#status'),result=document.querySelector('#result');
-function add(name='',profile=''){const row=document.createElement('div');row.className='member';row.innerHTML='<input class="name" maxlength="80" placeholder="Name" required><input class="profile" maxlength="500" placeholder="Skills / role" required><button type="button" class="remove">Remove</button>';row.querySelector('.name').value=name;row.querySelector('.profile').value=profile;row.querySelector('.remove').onclick=()=>row.remove();team.append(row)}
-[['Alice','Full-stack developer'],['Bob','Backend APIs and databases'],['Carol','Cloud and DevOps']].forEach(x=>add(...x));document.querySelector('#add').onclick=()=>add();
+function add(name='',profile=''){
+  const row=document.createElement('div');
+  row.className='member';
+  row.innerHTML='<input class="name" maxlength="80" placeholder="Name" required><input class="profile" maxlength="500" placeholder="Skills / role" required><button type="button" class="remove">Remove</button>';
+  row.querySelector('.name').value=name;
+  row.querySelector('.profile').value=profile;
+  row.querySelector('.remove').onclick=()=>row.remove();
+  team.append(row);
+}
+[['Alice','Full-stack developer, Python, React'],['Bob','Backend engineer, APIs, databases'],['Carol','DevOps engineer, CI/CD, cloud infrastructure'],['Dave','QA engineer, testing, automation']].forEach(x=>add(...x));
+document.querySelector('#add').onclick=()=>add();
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-document.querySelector('#form').onsubmit=async e=>{e.preventDefault();const btn=document.querySelector('#submit');btn.disabled=true;statusEl.className='status';statusEl.textContent='Generating your plan…';result.classList.add('hidden');const members=[...team.querySelectorAll('.member')].map(x=>({name:x.querySelector('.name').value,profile:x.querySelector('.profile').value}));try{const res=await fetch('/api/run',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({project:document.querySelector('#project').value,team:members})});const data=await res.json();if(!res.ok)throw new Error(data.error||'Request failed');render(data.plan)}catch(err){statusEl.className='status error';statusEl.textContent=err.message}finally{btn.disabled=false}};
-function render(p){const s=p.summary||{};result.innerHTML=`<h2>${esc(s.objective||'Project plan')}</h2><div class="grid"><div class="metric"><b>${esc(s.total_tasks??p.tasks?.length??0)}</b>Tasks</div><div class="metric"><b>${esc(s.total_days??0)}</b>Days</div><div class="metric"><b>${esc(s.team_size??0)}</b>Team members</div><div class="metric"><b>${esc(s.risk_score??0)}/10</b>Risk</div></div><h3>Tasks and assignments</h3>${(p.tasks||[]).map(t=>{const a=(p.assignments||[]).find(a=>a.task_id===t.id);return `<div class="task"><strong>${esc(t.id)} — ${esc(t.title)}</strong><div>${esc(t.description)}</div><small>${esc(t.duration_days)} day(s) · ${esc(a?.member||'Unassigned')} · Dependencies: ${esc((t.dependencies||[]).join(', ')||'None')}</small></div>`}).join('')}<h3>Risks</h3>${(p.risks||[]).map(r=>`<p><strong>${esc(r.severity)}:</strong> ${esc(r.risk)} — ${esc(r.mitigation)}</p>`).join('')||'<p>No major risks identified.</p>'}<h3>Insights</h3><ul>${(p.insights||[]).map(x=>`<li>${esc(x)}</li>`).join('')}</ul>`;result.classList.remove('hidden');statusEl.textContent='Plan generated successfully.'}
-</script></body></html>
+document.querySelector('#form').onsubmit=async e=>{
+  e.preventDefault();
+  const btn=document.querySelector('#submit');
+  btn.disabled=true;
+  statusEl.className='status';
+  statusEl.textContent='Generating your plan… this usually takes a few seconds.';
+  result.classList.add('hidden');
+  const members=[...team.querySelectorAll('.member')].map(x=>({name:x.querySelector('.name').value,profile:x.querySelector('.profile').value}));
+  const controller=new AbortController();
+  const timer=setTimeout(()=>controller.abort(),45000);
+  try{
+    const res=await fetch('/api/run',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({project:document.querySelector('#project').value,team:members}),signal:controller.signal});
+    const data=await res.json();
+    if(!res.ok)throw new Error(data.error||'Request failed');
+    render(data.plan,data.warning);
+    statusEl.className=data.warning?'status warn':'status ok';
+    statusEl.textContent=data.warning||'Plan generated successfully.';
+  }catch(err){
+    statusEl.className='status error';
+    statusEl.textContent=err.name==='AbortError'?'Plan generation timed out. Please try again.':err.message;
+  }finally{
+    clearTimeout(timer);
+    btn.disabled=false;
+  }
+};
+function render(p,warning){
+  const s=p.summary||{};
+  const tasks=p.tasks||[];
+  const schedule=[...(p.schedule||[])].sort((a,b)=>(a.start_day||0)-(b.start_day||0));
+  const totalDays=Math.max(1,Number(s.total_days||schedule.at(-1)?.end_day||1));
+  const assignments=p.assignments||[];
+  result.innerHTML=`
+    <h2>${esc(s.objective||'Project plan')}</h2>
+    ${warning?`<p class="warn">${esc(warning)}</p>`:''}
+    <div class="grid">
+      <div class="metric"><b>${esc(s.total_tasks??tasks.length)}</b>Tasks</div>
+      <div class="metric"><b>${esc(s.total_days??0)}</b>Days</div>
+      <div class="metric"><b>${esc(s.team_size??0)}</b>Team members</div>
+      <div class="metric"><b>${esc(s.risk_score??0)}/10</b>Risk</div>
+    </div>
+    <h3>Work breakdown</h3>
+    ${tasks.map(t=>{
+      const a=assignments.find(x=>x.task_id===t.id);
+      const skills=(t.required_skills||[]).join(', ')||'General delivery';
+      return `<div class="task"><strong>${esc(t.id)} — ${esc(t.title||t.name)}</strong>
+        <div>${esc(t.description)}</div>
+        <small>${esc(t.duration_days??t.estimated_days)} day(s) · ${esc(a?.member||a?.assignee||'Unassigned')} · Skills: ${esc(skills)} · Depends on: ${esc((t.dependencies||[]).join(', ')||'None')}</small></div>`;
+    }).join('')||'<p>No tasks returned.</p>'}
+    <h3>Schedule</h3>
+    <table>
+      <thead><tr><th>Task</th><th>Owner</th><th>Start</th><th>End</th><th>Timeline</th></tr></thead>
+      <tbody>
+        ${schedule.map(item=>{
+          const start=Number(item.start_day||0);
+          const end=Number(item.end_day||start+1);
+          const left=(start/totalDays)*100;
+          const width=Math.max(8,((end-start)/totalDays)*100);
+          return `<tr><td>${esc(item.task_id)} ${esc(item.task_name||'')}</td><td>${esc(item.assignee||item.member||'')}</td><td>Day ${esc(start)}</td><td>Day ${esc(end)}</td><td><div class="bar"><span style="width:${width}%;margin-left:${left}%;max-width:${100-left}%"></span></div></td></tr>`;
+        }).join('')||'<tr><td colspan="5">No schedule returned.</td></tr>'}
+      </tbody>
+    </table>
+    <h3>Assignments</h3>
+    ${assignments.map(a=>`<p><strong>${esc(a.task_id)} ${esc(a.task_name||'')}</strong> → ${esc(a.member||a.assignee||'Unassigned')}<br><small>${esc(a.reason||'')}</small></p>`).join('')||'<p>No assignments returned.</p>'}
+    <h3>RAID / risks</h3>
+    ${(p.risks||[]).map(r=>`<p><span class="sev ${esc(r.severity||'medium')}">${esc(r.severity||'medium')}</span> <strong>${esc(r.category||'Risk')}:</strong> ${esc(r.risk||r.description)} — ${esc(r.mitigation)}</p>`).join('')||'<p>No major risks identified.</p>'}
+    <h3>Insights</h3>
+    <ul>${(p.insights||[]).map(x=>`<li>${esc(x)}</li>`).join('')||'<li>No additional insights.</li>'}</ul>
+  `;
+  result.classList.remove('hidden');
+  result.scrollIntoView({behavior:'smooth',block:'start'});
+}
+</script>
+</body>
+</html>
