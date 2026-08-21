@@ -17,7 +17,7 @@
 
 **AI Project Manager Assistant** is a full-stack, edge-deployed project planning engine built for Technical Program Managers and Project Managers. It converts loose project descriptions, target timelines, and team profiles into an actionable, structured execution plan with complete work breakdown structures (WBS), risk registers (RAID), and team task allocations.
 
-Deployed natively on **Cloudflare Workers** with zero cold starts, the application leverages protected **Workers AI bindings (`@cf/meta/llama-3.1-8b-instruct-fp8`)** to synthesize comprehensive project plans with sub-second response times and zero database overhead.
+Deployed natively on **Cloudflare Workers** with zero cold starts, the application leverages protected **Workers AI bindings (`@cf/meta/llama-3.1-8b-instruct-fast`)** with JSON schema output to synthesize comprehensive project plans and still return a structured baseline plan if inference is slow.
 
 ---
 
@@ -105,7 +105,7 @@ Generate a structured project plan from a scope description and team roster:
 ## 🛠️ Tech Stack
 
 - **Runtime:** Cloudflare Workers (TypeScript)
-- **AI Inference:** Cloudflare Workers AI (`@cf/meta/llama-3.1-8b-instruct-fp8`)
+- **AI Inference:** Cloudflare Workers AI (`@cf/meta/llama-3.1-8b-instruct-fast`)
 - **Frontend:** Responsive HTML5, Vanilla JavaScript, TailwindCSS
 - **Tooling:** Wrangler, TypeScript
 
