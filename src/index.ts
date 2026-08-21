@@ -169,12 +169,66 @@ function asStringArray(value: unknown): string[] {
   return value.map((item) => asString(item)).filter(Boolean);
 }
 
+function stripTrailingCommas(text: string): string {
+  return text.replace(/,\s*([}\]])/g, "$1");
+}
+
+function closeTruncatedJson(text: string): string {
+  let inString = false;
+  let escape = false;
+  const stack: string[] = [];
+  let lastComplete = -1;
+
+  for (let index = 0; index < text.length; index += 1) {
+    const char = text[index];
+    if (inString) {
+      if (escape) {
+        escape = false;
+        continue;
+      }
+      if (char === "\\") {
+        escape = true;
+        continue;
+      }
+      if (char === "\"") inString = false;
+      continue;
+    }
+    if (char === "\"") {
+      inString = true;
+      continue;
+    }
+    if (char === "{") stack.push("}");
+    else if (char === "[") stack.push("]");
+    else if (char === "}" || char === "]") {
+      if (stack[stack.length - 1] === char) stack.pop();
+      if (stack.length === 0) lastComplete = index;
+    }
+  }
+
+  if (lastComplete >= 0) return text.slice(0, lastComplete + 1);
+
+  let repaired = text;
+  if (inString) repaired += "\"";
+  repaired = repaired.replace(/,\s*$/, "");
+  while (stack.length) repaired += stack.pop();
+  return repaired;
+}
+
 function parseJsonText(text: string): unknown {
-  const cleaned = text.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "");
+  const cleaned = text.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```[\s\S]*$/, "");
   const start = cleaned.indexOf("{");
-  const end = cleaned.lastIndexOf("}");
-  if (start < 0 || end <= start) throw new Error("The AI response was not valid JSON.");
-  return JSON.parse(cleaned.slice(start, end + 1));
+  if (start < 0) throw new Error("The AI response was not valid JSON.");
+  const body = stripTrailingCommas(cleaned.slice(start));
+  const candidates = [body, closeTruncatedJson(body), stripTrailingCommas(closeTruncatedJson(body))];
+  let lastError: unknown;
+  for (const candidate of candidates) {
+    try {
+      return JSON.parse(candidate);
+    } catch (error) {
+      lastError = error;
+    }
+  }
+  throw lastError instanceof Error ? lastError : new Error("The AI response was not valid JSON.");
 }
 
 function extractModelOutput(result: unknown): unknown {
@@ -408,7 +462,7 @@ async function withTimeout<T>(promise: Promise<T>, ms: number, label: string): P
 }
 
 function planPrompt(project: string, team: TeamMember[]): string {
-  return `Create a practical software project execution plan.
+  return `Create a practical software project execution plan as compact JSON.
 
 PROJECT:
 ${project}
@@ -417,37 +471,54 @@ TEAM:
 ${JSON.stringify(team)}
 
 Rules:
-- Create 6 to 10 specific, independently deliverable tasks.
-- Use only provided team member names for assignees.
+- Create 6 to 8 specific tasks with short descriptions.
+- Use only provided team member names.
 - Dependencies must reference existing task IDs and must not be circular.
 - Schedule day 0 is kickoff. A task cannot start before its dependencies end.
-- Parallelize independent work across the team.
-- Estimate duration_days as integers from 1 to 14.
+- Parallelize independent work.
+- duration_days must be an integer from 1 to 14.
 - risk_score is a number from 0 to 10.
-- Include 3 to 6 risks with category, severity, and mitigation.
-- Include 3 to 5 concrete insights that name tasks or people.`;
+- Include exactly 3 risks and 3 insights.
+- Do not include markdown or extra keys.`;
+}
+
+async function runModel(env: Env, project: string, team: TeamMember[], responseFormat: Record<string, unknown>): Promise<unknown> {
+  const model = (env.AI_MODEL || "@cf/meta/llama-3.1-8b-instruct-fast") as Parameters<Ai["run"]>[0];
+  return withTimeout(
+    env.AI.run(model, {
+      messages: [
+        { role: "system", content: "You are a senior technical project manager. Return only valid JSON." },
+        { role: "user", content: planPrompt(project, team) },
+      ],
+      temperature: 0.1,
+      max_tokens: 2400,
+      response_format: responseFormat,
+    } as never),
+    20_000,
+    "Workers AI timed out while generating the plan.",
+  );
 }
 
 async function generateWithAI(project: string, team: TeamMember[], env: Env): Promise<ProjectPlan> {
-  const model = (env.AI_MODEL || "@cf/meta/llama-3.1-8b-instruct-fast") as Parameters<Ai["run"]>[0];
-  const result = await withTimeout(
-    env.AI.run(model, {
-      messages: [
-        { role: "system", content: "You are a senior technical project manager. Return only valid JSON that matches the schema." },
-        { role: "user", content: planPrompt(project, team) },
-      ],
-      temperature: 0.2,
-      max_tokens: 1800,
-      response_format: {
-        type: "json_schema",
-        json_schema: PLAN_JSON_SCHEMA,
-      },
-    } as never),
-    25_000,
-    "Workers AI timed out while generating the plan.",
-  );
+  const formats = [
+    { type: "json_object" },
+    { type: "json_schema", json_schema: PLAN_JSON_SCHEMA },
+  ];
 
-  return assemblePlan(project, team, extractModelOutput(result));
+  let lastError: unknown;
+  for (const format of formats) {
+    try {
+      const result = await runModel(env, project, team, format);
+      const plan = assemblePlan(project, team, extractModelOutput(result));
+      if (!plan.tasks.length) throw new Error("The AI model returned no tasks.");
+      return plan;
+    } catch (error) {
+      lastError = error;
+      console.error("Workers AI format failed", format.type, error instanceof Error ? error.message : error);
+    }
+  }
+
+  throw lastError instanceof Error ? lastError : new Error("Plan generation failed.");
 }
 
 async function createPlan(request: Request, env: Env): Promise<Response> {
