@@ -2,7 +2,11 @@
 
 A Cloudflare-native project-management workspace that turns a project brief and team profile into an actionable delivery plan, then lets you track execution through WBS, board, timeline, workload, RAID and AI-copilot views.
 
-**Live deployment:** https://ai-project-manager-assistant.madanmohanlearning.workers.dev/
+## Live Demo
+
+**Deployment:** https://ai-project-manager-assistant.madanmohanlearning.workers.dev/
+
+[Open AI Project Manager Assistant](https://ai-project-manager-assistant.madanmohanlearning.workers.dev/)
 
 ## What changed in v3
 
