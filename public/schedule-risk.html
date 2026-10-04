@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Schedule risk · AI Project Manager Assistant</title>
+<style>
+  :root { --bg:#f6f7fb; --card:#fff; --ink:#1b2130; --muted:#5f6880; --line:#d9dde8; --accent:#2a4fd0; --crit:#c0392b; --ok:#1f8a4c; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#111622; --card:#1a2131; --ink:#e8ecf6; --muted:#9aa5bd; --line:#2b3448; --accent:#8ea8ff; --crit:#ff7b6b; --ok:#5fd38a; } }
+  * { box-sizing:border-box }
+  body { margin:0; background:var(--bg); color:var(--ink); font:15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif }
+  main { max-width:1080px; margin:0 auto; padding:24px 20px 60px }
+  h1 { font-size:26px; margin:0 0 4px } h2 { font-size:17px; margin:24px 0 8px }
+  p.lead { color:var(--muted); margin:0 0 18px; max-width:70ch }
+  textarea { width:100%; min-height:160px; border:1px solid var(--line); border-radius:8px; background:var(--card); color:var(--ink); padding:10px; font:13px/1.4 ui-monospace, Menlo, monospace }
+  .row { display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin:10px 0 }
+  label { font-size:13px; color:var(--muted) }
+  input[type=number] { width:90px; height:34px; border:1px solid var(--line); border-radius:6px; background:var(--card); color:var(--ink); padding:0 8px }
+  button { height:36px; padding:0 14px; border-radius:8px; border:1px solid var(--accent); background:var(--accent); color:#fff; font-weight:600; cursor:pointer }
+  button.secondary { background:transparent; color:var(--accent) }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:14px 16px; margin:10px 0 }
+  .stats { display:flex; flex-wrap:wrap; gap:18px } .stat b { display:block; font-size:24px } .stat span { color:var(--muted); font-size:13px }
+  table { width:100%; border-collapse:collapse; font-size:13.5px } th, td { text-align:left; padding:6px 8px; border-bottom:1px solid var(--line) } th { color:var(--muted); font-weight:600 }
+  tr.critical td:first-child { border-left:3px solid var(--crit); padding-left:6px }
+  .bar { height:10px; background:var(--line); border-radius:5px; overflow:hidden } .bar i { display:block; height:100%; background:var(--accent) }
+  .hist { display:flex; align-items:flex-end; gap:3px; height:90px } .hist i { flex:1; background:var(--accent); opacity:.85; border-radius:2px 2px 0 0 }
+  ul.insights li { margin:6px 0 }
+  .err { color:var(--crit) } .note { color:var(--muted); font-size:13px }
+</style>
+</head>
+<body>
+<main>
+  <h1>Schedule risk</h1>
+  <p class="lead">Paste the project JSON exported from the workspace (or a plain task list) to see the critical path, what resource leveling does to the end date, and the probability of finishing by a target date.</p>
+
+  <textarea id="input" placeholder='{"tasks":[{"id":"T1","name":"Design","durationDays":3,"dependencies":[],"assignee":"Alice"}],"team":[{"name":"Alice","capacity":100}]}'></textarea>
+  <div class="row">
+    <label>Target days <input type="number" id="target" min="1" placeholder="30"></label>
+    <label>Simulations <input type="number" id="iters" min="100" max="20000" value="2000"></label>
+    <button id="run">Analyze schedule</button>
+    <button class="secondary" id="sample">Load sample</button>
+  </div>
+  <p class="err" id="error"></p>
+  <div id="out"></div>
+</main>
+<script>
+const $ = (id) => document.getElementById(id);
+const sample = { tasks: [
+  { id: "T1", name: "Discovery", durationDays: 3, dependencies: [], assignee: "Alice" },
+  { id: "T2", name: "API design", durationDays: 2, dependencies: ["T1"], assignee: "Bob" },
+  { id: "T3", name: "UI build", durationDays: 6, dependencies: ["T1"], assignee: "Alice" },
+  { id: "T4", name: "API build", durationDays: 5, dependencies: ["T2"], assignee: "Bob" },
+  { id: "T5", name: "Integration", durationDays: 3, dependencies: ["T3","T4"], assignee: "Bob" },
+  { id: "T6", name: "QA", durationDays: 3, dependencies: ["T5"], assignee: "Chen" },
+  { id: "T7", name: "Launch", durationDays: 1, dependencies: ["T6"], assignee: "Alice" }
+], team: [ { name: "Alice", capacity: 100 }, { name: "Bob", capacity: 100 }, { name: "Chen", capacity: 50 } ] };
+$("sample").onclick = () => { $("input").value = JSON.stringify(sample, null, 2); };
+
+$("run").onclick = async () => {
+  $("error").textContent = ""; $("out").innerHTML = "";
+  let project;
+  try { project = JSON.parse($("input").value); } catch { $("error").textContent = "That is not valid JSON."; return; }
+  const body = { options: { monteCarlo: { iterations: Number($("iters").value) || 2000 } } };
+  if ($("target").value) body.options.monteCarlo.targetDays = Number($("target").value);
+  if (Array.isArray(project.tasks) && project.tasks.length && project.tasks[0].durationDays !== undefined && !project.team) {
+    body.tasks = project.tasks; body.resources = project.resources || [];
+  } else { body.project = project; }
+  const res = await fetch("/api/projects/analyze", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+  const data = await res.json();
+  if (!res.ok) { $("error").textContent = data.error + (data.issues ? ": " + data.issues.map(i => i.message).join(" ") : ""); return; }
+  render(data);
+};
+
+function esc(s) { return String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+
+function render(a) {
+  const cp = a.criticalPath, lv = a.leveling, mc = a.monteCarlo;
+  const maxEnd = Math.max(cp.projectDurationDays, lv ? lv.projectDurationDays : 0, 1);
+  let html = `<div class="card"><h2 style="margin-top:0">What this means</h2><ul class="insights">${a.insights.map(i => `<li>${esc(i)}</li>`).join("")}</ul></div>`;
+  html += `<div class="card"><div class="stats">
+    <div class="stat"><b>${cp.projectDurationDays}d</b><span>Critical path</span></div>
+    ${lv ? `<div class="stat"><b>${lv.projectDurationDays}d</b><span>With people leveled (+${lv.slipDays})</span></div>` : ""}
+    ${mc ? `<div class="stat"><b>${mc.percentiles.P50 ?? "–"}d</b><span>P50</span></div><div class="stat"><b>${mc.percentiles.P80 ?? "–"}d</b><span>P80</span></div><div class="stat"><b>${mc.percentiles.P90 ?? "–"}d</b><span>P90</span></div>` : ""}
+    ${mc && mc.probabilityWithinTarget !== undefined ? `<div class="stat"><b>${Math.round(mc.probabilityWithinTarget*100)}%</b><span>Chance of ${mc.targetDays}d target</span></div>` : ""}
+  </div></div>`;
+
+  html += `<h2>Tasks</h2><div class="card"><table><thead><tr><th>Task</th><th>Owner</th><th>Start–End</th><th>Float</th><th>Leveled</th><th>Criticality</th><th style="width:28%">Timeline</th></tr></thead><tbody>`;
+  for (const t of cp.tasks) {
+    const l = lv ? lv.tasks.find(x => x.id === t.id) : null;
+    const ci = mc ? mc.criticalityIndex[t.id] : null;
+    const left = (l ? l.start : t.earliestStart) / maxEnd * 100, width = ((l ? l.end : t.earliestFinish) - (l ? l.start : t.earliestStart)) / maxEnd * 100;
+    html += `<tr class="${t.critical ? "critical" : ""}"><td>${esc(t.name || t.id)}${t.name ? ` <span class="note">${esc(t.id)}</span>` : ""}</td><td>${esc(l?.assignee ?? "")}</td><td>${t.earliestStart}–${t.earliestFinish}</td><td>${t.totalFloat}</td><td>${l ? `${l.start}–${l.end}${l.delayDays ? ` <span class="err">+${l.delayDays}</span>` : ""}` : "–"}</td><td>${ci === null ? "–" : Math.round(ci*100) + "%"}</td><td><div class="bar"><i style="margin-left:${left}%;width:${Math.max(width,1)}%;${t.critical ? "background:var(--crit)" : ""}"></i></div></td></tr>`;
+  }
+  html += `</tbody></table><p class="note">Red rows are on the critical path. "Leveled" shows dates once each person works one task at a time. Criticality is the share of simulations in which the task drove the end date.</p></div>`;
+
+  if (lv && lv.utilization.length) {
+    html += `<h2>People</h2><div class="card"><table><thead><tr><th>Person</th><th>Tasks</th><th>Busy days</th><th>Utilization</th></tr></thead><tbody>${lv.utilization.map(u => `<tr><td>${esc(u.key)}</td><td>${u.taskCount}</td><td>${u.busyDays}</td><td>${u.utilizationPct}%</td></tr>`).join("")}</tbody></table></div>`;
+  }
+  if (mc) {
+    const peak = Math.max(...mc.histogram.map(b => b.count), 1);
+    html += `<h2>Finish-date distribution</h2><div class="card"><div class="hist">${mc.histogram.map(b => `<i title="${b.from}–${b.to} days: ${b.count}" style="height:${(b.count/peak)*100}%"></i>`).join("")}</div><p class="note">${mc.iterations} simulations, ${mc.distribution} distribution, seed ${mc.seed}. Range ${mc.minDurationDays}–${mc.maxDurationDays} days, mean ${mc.meanDurationDays}.</p></div>`;
+  }
+  $("out").innerHTML = html;
+}
+</script>
+</body>
+</html>
