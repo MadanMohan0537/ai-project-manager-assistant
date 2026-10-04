@@ -1,0 +1,25 @@
+# Move this file to .github/workflows/ci.yml when committing locally.
+# GitHub only accepts workflow files from tokens with the `workflow` scope,
+# which the API connection used to open this branch does not have.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      # Type-check the Worker and dry-run the deployment (existing script).
+      - run: npm run check --if-present
+      # Scheduling engine: compile to a throwaway folder and run node:test.
+      - run: npx tsc -p tsconfig.scheduling.json
+      - run: node --test "test/**/*.test.mjs"
