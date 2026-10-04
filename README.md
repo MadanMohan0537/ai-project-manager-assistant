@@ -8,6 +8,12 @@ An AI-powered project delivery workspace built on Cloudflare Workers. Describe a
 
 **[Try the live demo →](https://ai-project-manager-assistant.madanmohanlearning.workers.dev/)**
 
+## Before you generate a plan
+
+Use a brief with a concrete outcome, target date and named team roles. After generation, review dependencies, task estimates and RAID ownership before treating the plan as a delivery commitment. The scheduler validates structure; it does not prove that estimates are realistic or capacity is sufficient.
+
+For implementation review, begin with [Worker planning and copilot routes](src/index.ts), then [browser behavior](public/app.js). Run `npm run check` after changes; a compiler and deployment dry run do not substitute for behavioral tests.
+
 ## Why this project?
 
 Turning a project brief into an executable plan usually requires several rounds of task breakdown, sequencing, ownership, and risk analysis. AI Project Manager Assistant brings that workflow into one browser-based workspace:
