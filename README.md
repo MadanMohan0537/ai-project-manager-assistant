@@ -107,27 +107,30 @@ Open the local URL printed by Wrangler, normally `http://localhost:8787`.
 npm run check
 ```
 
-This runs `tsc --noEmit` and `wrangler deploy --dry-run`. TypeScript checking covers `src/**/*.ts` only. There is no test suite.
+This runs `tsc --noEmit` and `wrangler deploy --dry-run`. TypeScript checking covers `src/**/*.ts` only. There is no test suite. The dry run checks the Worker bundle; it does not publish.
 
-### Deploy
+## Deployment
+
+Publish the Worker to Cloudflare Workers:
 
 ```bash
-npm run deploy
+npx wrangler login
+npx wrangler deploy
 ```
 
-The included `wrangler.jsonc` configures:
+`npx wrangler deploy` uploads the Worker defined in `wrangler.jsonc`. The Worker name stays `ai-project-manager-assistant`, so the live URL stays [https://ai-project-manager-assistant.madanmohanlearning.workers.dev/](https://ai-project-manager-assistant.madanmohanlearning.workers.dev/).
 
+That config sets:
+
+- Entry point: `src/index.ts`
+- `workers_dev`: `true`
 - `AI` — Workers AI binding
-- `ASSETS` — static assets from `public/`
-- `AI_MODEL` — model used for planning and copilot requests
+- `ASSETS` — static files from `public/`, with `/api/*` routed to the Worker first
+- `AI_MODEL` — text variable, default `@cf/meta/llama-3.1-8b-instruct-fp8`
 
-The default model is:
+No Worker secrets are configured. Planning and the copilot use the `AI` binding on the Cloudflare account you deploy to. Change `AI_MODEL` in `wrangler.jsonc` to use another compatible Workers AI text model. If that variable is unset, the Worker uses the same default model name.
 
-```text
-@cf/meta/llama-3.1-8b-instruct-fp8
-```
-
-Change `AI_MODEL` in `wrangler.jsonc` to use another compatible Workers AI text-generation model. The worker falls back to that same model name when the variable is unset.
+`npm run deploy` runs `wrangler deploy` as well.
 
 ## Using the app
 
